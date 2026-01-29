@@ -7,6 +7,7 @@ package frc.robot;
 // import edu.wpi.first.cameraserver.CameraServer;
 // import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -36,6 +37,7 @@ import com.pathplanner.lib.commands.PathPlannerAuto;
 public class RobotContainer {
 
   private final SendableChooser<Command> autoChooser;
+  private Rotation2d heldHeading = new Rotation2d();
 
   // The robot's subsystems and commands are defined here...
   private final SwerveSubsystem drivebase = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(),
@@ -79,6 +81,8 @@ public class RobotContainer {
   public RobotContainer() {
 
     //startUSBCamera();  // Enable USB Camera for dashboard
+
+    heldHeading = drivebase.getHeading();
 
     // Configure the trigger bindings
     configureBindings();
@@ -141,7 +145,7 @@ public class RobotContainer {
             "Left trigger released: Limelight aim ended. Returning to default drive; "
                 + "holding heading at %.2f degrees while right stick is neutral.",
             drivebase.getHeading().getDegrees()),
-        false)));
+        false)).alongWith(Commands.runOnce(() -> heldHeading = drivebase.getHeading())));
 
 
 
@@ -180,9 +184,9 @@ public class RobotContainer {
     double magnitude = Math.hypot(rightX, rightY);
     if (magnitude < OperatorConstants.RIGHT_X_DEADBAND)
     {
-      double headingRadians = drivebase.getHeading().getRadians();
-      return Math.cos(headingRadians);
+      return Math.cos(heldHeading.getRadians());
     }
+    heldHeading = new Rotation2d(Math.atan2(rightY, rightX));
     return rightX;
   }
 
@@ -193,9 +197,9 @@ public class RobotContainer {
     double magnitude = Math.hypot(rightX, rightY);
     if (magnitude < OperatorConstants.RIGHT_X_DEADBAND)
     {
-      double headingRadians = drivebase.getHeading().getRadians();
-      return Math.sin(headingRadians);
+      return Math.sin(heldHeading.getRadians());
     }
+    heldHeading = new Rotation2d(Math.atan2(rightY, rightX));
     return rightY;
   }
 
