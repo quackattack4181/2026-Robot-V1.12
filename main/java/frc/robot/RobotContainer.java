@@ -7,11 +7,13 @@ package frc.robot;
 // import edu.wpi.first.cameraserver.CameraServer;
 // import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.Constants.OperatorConstants;
@@ -53,8 +55,8 @@ public class RobotContainer {
   Command driveFieldOrientedDirectAngle = drivebase.driveCommand(
       () -> MathUtil.applyDeadband(-driverOne.getLeftY(), OperatorConstants.LEFT_Y_DEADBAND), // <<<===== CHANGED from -
       () -> MathUtil.applyDeadband(-driverOne.getLeftX(), OperatorConstants.LEFT_X_DEADBAND), // <<<===== CHANGED from -
-      () -> -driverOne.getRightX(), // <<<===== CHANGED from -
-      () -> -driverOne.getRightY()); // <<<===== CHANGED from -
+      this::getHeadingXInput,
+      this::getHeadingYInput);
 
   // Applies deadbands and inverts controls because joysticks
   // are back-right positive while robot
@@ -125,11 +127,21 @@ public class RobotContainer {
     // Zero the gyro when driverOne presses A
     driverOne.a().onTrue(drivebase.runOnce(drivebase::zeroGyro));
 
-    driverOne.leftTrigger(0.5)
-             .whileTrue(drivebase.driveFieldOrientedWithLimelight(
-                 () -> MathUtil.applyDeadband(-driverOne.getLeftY(), OperatorConstants.LEFT_Y_DEADBAND),
-                 () -> MathUtil.applyDeadband(-driverOne.getLeftX(), OperatorConstants.LEFT_X_DEADBAND),
-                 VisionConstants.LIMELIGHT_NAME));
+    Trigger leftTrigger = driverOne.leftTrigger(0.5);
+    leftTrigger.onTrue(Commands.runOnce(() -> DriverStation.reportWarning(
+        "Left trigger pressed: enabling Limelight aim while driving; "
+            + "on release we will hold the current heading if the right stick is neutral.",
+        false)));
+    leftTrigger.whileTrue(drivebase.driveFieldOrientedWithLimelight(
+        () -> MathUtil.applyDeadband(-driverOne.getLeftY(), OperatorConstants.LEFT_Y_DEADBAND),
+        () -> MathUtil.applyDeadband(-driverOne.getLeftX(), OperatorConstants.LEFT_X_DEADBAND),
+        VisionConstants.LIMELIGHT_NAME));
+    leftTrigger.onFalse(Commands.runOnce(() -> DriverStation.reportWarning(
+        String.format(
+            "Left trigger released: Limelight aim ended. Returning to default drive; "
+                + "holding heading at %.2f degrees while right stick is neutral.",
+            drivebase.getHeading().getDegrees()),
+        false)));
 
 
 
@@ -159,6 +171,32 @@ public class RobotContainer {
   public void setMotorBrake(boolean brake)
   {
     drivebase.setMotorBrake(brake);
+  }
+
+  private double getHeadingXInput()
+  {
+    double rightX = -driverOne.getRightX();
+    double rightY = -driverOne.getRightY();
+    double magnitude = Math.hypot(rightX, rightY);
+    if (magnitude < OperatorConstants.RIGHT_X_DEADBAND)
+    {
+      double headingRadians = drivebase.getHeading().getRadians();
+      return Math.cos(headingRadians);
+    }
+    return rightX;
+  }
+
+  private double getHeadingYInput()
+  {
+    double rightX = -driverOne.getRightX();
+    double rightY = -driverOne.getRightY();
+    double magnitude = Math.hypot(rightX, rightY);
+    if (magnitude < OperatorConstants.RIGHT_X_DEADBAND)
+    {
+      double headingRadians = drivebase.getHeading().getRadians();
+      return Math.sin(headingRadians);
+    }
+    return rightY;
   }
 
 }
