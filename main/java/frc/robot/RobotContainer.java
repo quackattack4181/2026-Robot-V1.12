@@ -37,7 +37,8 @@ import com.pathplanner.lib.commands.PathPlannerAuto;
 public class RobotContainer {
 
   private final SendableChooser<Command> autoChooser;
-  private Rotation2d heldHeading = new Rotation2d();
+  private boolean holdHeadingActive = false;
+  private Rotation2d holdHeading = new Rotation2d();
 
   // The robot's subsystems and commands are defined here...
   private final SwerveSubsystem drivebase = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(),
@@ -81,8 +82,6 @@ public class RobotContainer {
   public RobotContainer() {
 
     //startUSBCamera();  // Enable USB Camera for dashboard
-
-    heldHeading = drivebase.getHeading();
 
     // Configure the trigger bindings
     configureBindings();
@@ -145,7 +144,10 @@ public class RobotContainer {
             "Left trigger released: Limelight aim ended. Returning to default drive; "
                 + "holding heading at %.2f degrees while right stick is neutral.",
             drivebase.getHeading().getDegrees()),
-        false)).alongWith(Commands.runOnce(() -> heldHeading = drivebase.getHeading())));
+        false)).alongWith(Commands.runOnce(() -> {
+          holdHeading = drivebase.getHeading();
+          holdHeadingActive = true;
+        })));
 
 
 
@@ -182,11 +184,15 @@ public class RobotContainer {
     double rightX = -driverOne.getRightX();
     double rightY = -driverOne.getRightY();
     double magnitude = Math.hypot(rightX, rightY);
-    if (magnitude < OperatorConstants.RIGHT_X_DEADBAND)
+    if (magnitude >= OperatorConstants.RIGHT_X_DEADBAND)
     {
-      return Math.cos(heldHeading.getRadians());
+      holdHeadingActive = false;
+      return rightX;
     }
-    heldHeading = new Rotation2d(Math.atan2(rightY, rightX));
+    if (holdHeadingActive)
+    {
+      return Math.cos(holdHeading.getRadians());
+    }
     return rightX;
   }
 
@@ -195,11 +201,15 @@ public class RobotContainer {
     double rightX = -driverOne.getRightX();
     double rightY = -driverOne.getRightY();
     double magnitude = Math.hypot(rightX, rightY);
-    if (magnitude < OperatorConstants.RIGHT_X_DEADBAND)
+    if (magnitude >= OperatorConstants.RIGHT_X_DEADBAND)
     {
-      return Math.sin(heldHeading.getRadians());
+      holdHeadingActive = false;
+      return rightY;
     }
-    heldHeading = new Rotation2d(Math.atan2(rightY, rightX));
+    if (holdHeadingActive)
+    {
+      return Math.sin(holdHeading.getRadians());
+    }
     return rightY;
   }
 
